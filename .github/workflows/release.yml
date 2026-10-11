@@ -16,7 +16,7 @@ jobs:
   consistency:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: sudo apt-get update && sudo apt-get install -y libopus-dev
       - name: One version everywhere, same installed tree, license headers (and the tag, on a release)
         run: tests/test_packaging.sh ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
@@ -27,7 +27,7 @@ jobs:
     container: archlinux:base-devel
     steps:
       - run: pacman -Syu --noconfirm git namcap opus
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Build and check
@@ -40,7 +40,7 @@ jobs:
           su builder -c "cd packaging/arch && env -u DS5_SRC -u DS5_REF makepkg --printsrcinfo" | diff - packaging/arch/.SRCINFO
           namcap packaging/arch/PKGBUILD
           namcap packaging/arch/*.pkg.tar.zst || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: arch
           path: packaging/arch/*.pkg.tar.zst
@@ -58,7 +58,7 @@ jobs:
         run: |
           export DEBIAN_FRONTEND=noninteractive
           apt-get update && apt-get install -y build-essential debhelper libopus-dev git lintian
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build
         run: dpkg-buildpackage -us -uc -b
       - name: Name the package after the distribution (the same version is built for several)
@@ -67,7 +67,7 @@ jobs:
           v=$(dpkg-parsechangelog -S Version); a=$(dpkg --print-architecture); d=$(echo '${{ matrix.image }}' | tr -d ':')
           cp "../ds5bridge_${v}_${a}.deb" "dist/ds5bridge_${v}_${a}_${d}.deb"
           lintian dist/*.deb || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: deb-${{ strategy.job-index }}
           path: dist/*.deb
@@ -78,7 +78,7 @@ jobs:
     container: fedora:latest
     steps:
       - run: dnf install -y rpm-build gcc make opus-devel systemd-rpm-macros git rpmlint
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -87,13 +87,15 @@ jobs:
           git archive --prefix="ds5bridge-$v/" -o "/tmp/rpmsrc/ds5bridge-$v.tar.gz" HEAD
           rpmbuild -ba packaging/rpm/ds5bridge.spec --define "_topdir $PWD/rpmbuild" --define "_sourcedir /tmp/rpmsrc"
           rpmlint rpmbuild/RPMS/*/ds5bridge-0*.rpm || true
-      - uses: actions/upload-artifact@v4
+          # flat, like the other artifacts: the architecture directory would end up inside the artifact and sha256sum cannot hash a directory
+          mkdir dist && cp rpmbuild/RPMS/*/ds5bridge-0*.rpm dist/
+      - uses: actions/upload-artifact@v7
         with:
           name: rpm
-          path: rpmbuild/RPMS/*/ds5bridge-0*.rpm
+          path: dist/*.rpm
 
+  # Runs on every build, not only on a tag, so that gathering the artifacts and hashing them (the step that broke the first release) is tested before a tag is pushed; only the last step publishes.
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
     needs: [arch, deb, rpm]
     runs-on: ubuntu-latest
     permissions:
@@ -101,14 +103,19 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
-      - name: Release
+      - name: Checksums
         run: |
           cd dist
-          sha256sum -- * > SHA256SUMS
+          ls -l
+          sha256sum -- * | tee SHA256SUMS
+      - name: Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cd dist
           gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 && exit 0
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" --generate-notes -- *
 
@@ -125,7 +132,7 @@ jobs:
       GH_REPO: ${{ github.repository }}
     steps:
       - run: pacman -Syu --noconfirm git github-cli
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Pacman repository
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
