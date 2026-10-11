@@ -69,37 +69,18 @@ If you use Steam Input, turn it off for the games you want native DualSense feat
 ### Arch Linux
 
 **From the pacman repository** (updates with `pacman -Syu`), signed with a dedicated key. The repository is kept in the [`repo` release](https://github.com/snooptheone/ds5bridge/releases/tag/repo) and is created by the first
-tagged release once the signing key is set up (`tools/setup-signing-key.sh`, see [docs/RELEASING.md](docs/RELEASING.md)); the fingerprint will be published here, and you must check it before trusting the key.
+tagged release (the key was made with `tools/setup-signing-key.sh`, see [docs/RELEASING.md](docs/RELEASING.md)). The key's fingerprint is
 
-1. Download the key and check that the fingerprint printed matches the one published in this README:
+`277A DC77 1F9A FB34 8C4E  90D2 2980 7A6C D888 4E49`
 
-```bash
-curl -fsSLO https://github.com/snooptheone/ds5bridge/releases/download/repo/ds5bridge.gpg
-```
-```bash
-gpg --show-keys --fingerprint ds5bridge.gpg
-```
-
-2. Trust it (replace `FINGERPRINT` with the 40 characters printed above, no spaces):
+(it expires on 2028-10-10). Copy and paste this one block: it downloads the key, **stops if its fingerprint is not the one above**, trusts it, adds the repository to `/etc/pacman.conf` (once) and installs the package.
 
 ```bash
-sudo pacman-key --add ds5bridge.gpg
-```
-```bash
-sudo pacman-key --lsign-key FINGERPRINT
-```
-
-3. Add the repository at the end of `/etc/pacman.conf`:
-
-```ini
-[ds5bridge]
-SigLevel = Required DatabaseRequired
-Server = https://github.com/snooptheone/ds5bridge/releases/download/repo
-```
-
-4. Install:
-
-```bash
+FPR=277ADC771F9AFB348C4E90D229807A6CD8884E49 && cd "$(mktemp -d)" &&
+curl -fsSLO https://github.com/snooptheone/ds5bridge/releases/download/repo/ds5bridge.gpg &&
+[ "$(gpg --show-keys --with-colons ds5bridge.gpg | awk -F: '/^fpr/{print $10; exit}')" = "$FPR" ] &&
+sudo pacman-key --add ds5bridge.gpg && sudo pacman-key --lsign-key "$FPR" &&
+{ grep -q '^\[ds5bridge\]' /etc/pacman.conf || printf '\n[ds5bridge]\nSigLevel = Required DatabaseRequired\nServer = https://github.com/snooptheone/ds5bridge/releases/download/repo\n' | sudo tee -a /etc/pacman.conf >/dev/null; } &&
 sudo pacman -Syu ds5bridge
 ```
 
