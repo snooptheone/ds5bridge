@@ -1,0 +1,8 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -e
+#DEBHELPER#
+case "$1" in
+  remove|deconfigure) systemctl stop ds5bridge.service >/dev/null 2>&1 || true ;;
+esac
+exit 0

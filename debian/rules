@@ -1,0 +1,29 @@
+#!/usr/bin/make -f
+# SPDX-License-Identifier: GPL-3.0-or-later
+include /usr/share/dpkg/pkg-info.mk
+# WirePlumber 0.4 (Ubuntu 24.04, Debian 12) reads Lua, 0.5 and later .conf; the rule for the distribution's version goes into the package (0.5 warns about Lua files)
+WPVER := $(shell apt-cache policy wireplumber 2>/dev/null | sed -n 's/^ *Candidate: \([0-9]*\.[0-9]*\).*/\1/p' | head -1)
+# no candidate (a chroot without apt lists) must stop the build: guessing 0.5 would ship a rule that WirePlumber 0.4 ignores
+$(if $(WPVER),,$(error cannot tell the WirePlumber version: run apt-get update first))
+WPSTYLE := $(if $(filter 0.4,$(WPVER)),0.4,0.5)
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	dh_auto_build -- VERSION=$(DEB_VERSION_UPSTREAM)
+
+override_dh_auto_test:
+	dh_auto_test -- VERSION=$(DEB_VERSION_UPSTREAM)
+
+# the Makefile's defaults are for a manual install (/usr/local, /etc): the package uses the vendor directories
+override_dh_auto_install:
+	$(MAKE) install VERSION=$(DEB_VERSION_UPSTREAM) DESTDIR=$(CURDIR)/debian/ds5bridge PREFIX=/usr \
+	  SYSTEMDDIR=/usr/lib/systemd/system UDEVDIR=/usr/lib/udev/rules.d MODULESDIR=/usr/lib/modules-load.d \
+	  WPCONFDIR=/usr/share/wireplumber/wireplumber.conf.d WPLUADIR=/usr/share/wireplumber/main.lua.d WPSTYLE=$(WPSTYLE) \
+	  DOCDIR=/usr/share/doc/ds5bridge
+
+# the unit has no [Install] section: udev starts it when a pad connects, so nothing to enable or start here
+override_dh_installsystemd:
+	dh_installsystemd --no-enable --no-start

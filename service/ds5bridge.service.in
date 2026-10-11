@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Anderson S.
+[Unit]
+Description=ds5bridge: Bluetooth DualSense as a virtual USB DualSense (adaptive triggers, HD haptics, speaker for Proton/Wine games)
+After=bluetooth.target
+# Never give up restarting: udev rule 72 hides the real pad while vhci_hcd is loaded, so a service stuck in "failed" would leave the pad invisible to everything.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+# modprobe runs outside the sandbox (the "+"): ProtectKernelModules below would stop it. Found through PATH (env): it is in /usr/bin on Arch but only in /usr/sbin on Debian and Ubuntu. The module is also loaded at boot (modules-load.d).
+ExecStartPre=-+/usr/bin/env modprobe vhci_hcd
+ExecStart=@BINDIR@/ds5bridge
+Restart=on-failure
+RestartSec=3
+# The daemon only needs: /sys (the vhci attach file), /dev (hidraw), unix sockets, raw Bluetooth sockets (QoS) and, for the debug port, TCP on localhost.
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectSystem=strict
+PrivateTmp=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectHostname=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_BLUETOOTH AF_INET
+# The only privileged operation that needs a capability is the raw HCI socket (Bluetooth QoS); the sysfs and hidraw files are root-owned. If the service ever fails
+# with EPERM on a new kernel, remove this line first.
+CapabilityBoundingSet=CAP_NET_RAW

@@ -1,0 +1,21 @@
+pkgbase = ds5bridge
+	pkgdesc = Bluetooth DualSense as a virtual USB DualSense: adaptive triggers, haptics and the speaker for Proton/Wine games
+	pkgver = 0.1.0
+	pkgrel = 1
+	url = https://github.com/snooptheone/ds5bridge
+	install = ds5bridge.install
+	arch = x86_64
+	arch = aarch64
+	license = GPL-3.0-or-later
+	makedepends = git
+	depends = glibc
+	depends = opus
+	depends = systemd
+	depends = kmod
+	optdepends = bluez: the Bluetooth stack the pad connects through
+	optdepends = wireplumber: reads the pad audio rule this package installs (the controller speaker and haptics need it)
+	options = !debug
+	source = ds5bridge::git+https://github.com/snooptheone/ds5bridge.git#tag=v0.1.0
+	b2sums = SKIP
+
+pkgname = ds5bridge

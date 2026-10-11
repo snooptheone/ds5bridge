@@ -1,0 +1,133 @@
+name: release
+# Builds the packages (Arch, Ubuntu/Debian, Fedora). On a version tag (v0.1.0) it also publishes them in a GitHub release and adds the Arch package to the signed pacman repository.
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths: [packaging/**, debian/**, Makefile, service/**, src/**, .github/workflows/release.yml, .github/scripts/**]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  consistency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y libopus-dev
+      - name: One version everywhere, same installed tree, license headers (and the tag, on a release)
+        run: tests/test_packaging.sh ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+
+  arch:
+    needs: consistency
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - run: pacman -Syu --noconfirm git namcap opus
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build and check
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          useradd -m builder && chown -R builder .
+          # build exactly what was pushed: the release tag on a release, the commit otherwise (the PKGBUILD clones DS5_SRC)
+          if [ "${GITHUB_REF_TYPE}" = tag ]; then ref="tag=${GITHUB_REF_NAME}"; else ref="commit=${GITHUB_SHA}"; fi
+          su builder -c "git config --global --add safe.directory '*'; cd packaging/arch && DS5_SRC=file://$GITHUB_WORKSPACE DS5_REF=$ref makepkg --nodeps -f --noconfirm"
+          su builder -c "cd packaging/arch && env -u DS5_SRC -u DS5_REF makepkg --printsrcinfo" | diff - packaging/arch/.SRCINFO
+          namcap packaging/arch/PKGBUILD
+          namcap packaging/arch/*.pkg.tar.zst || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arch
+          path: packaging/arch/*.pkg.tar.zst
+
+  deb:
+    needs: consistency
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ['ubuntu:24.04', 'ubuntu:26.04']
+    container: ${{ matrix.image }}
+    steps:
+      - name: Build tools
+        run: |
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update && apt-get install -y build-essential debhelper libopus-dev git lintian
+      - uses: actions/checkout@v4
+      - name: Build
+        run: dpkg-buildpackage -us -uc -b
+      - name: Name the package after the distribution (the same version is built for several)
+        run: |
+          mkdir dist
+          v=$(dpkg-parsechangelog -S Version); a=$(dpkg --print-architecture); d=$(echo '${{ matrix.image }}' | tr -d ':')
+          cp "../ds5bridge_${v}_${a}.deb" "dist/ds5bridge_${v}_${a}_${d}.deb"
+          lintian dist/*.deb || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ strategy.job-index }}
+          path: dist/*.deb
+
+  rpm:
+    needs: consistency
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - run: dnf install -y rpm-build gcc make opus-devel systemd-rpm-macros git rpmlint
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          v=$(sed -n 's/^Version: *//p' packaging/rpm/ds5bridge.spec)
+          mkdir -p /tmp/rpmsrc
+          git archive --prefix="ds5bridge-$v/" -o "/tmp/rpmsrc/ds5bridge-$v.tar.gz" HEAD
+          rpmbuild -ba packaging/rpm/ds5bridge.spec --define "_topdir $PWD/rpmbuild" --define "_sourcedir /tmp/rpmsrc"
+          rpmlint rpmbuild/RPMS/*/ds5bridge-0*.rpm || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rpm
+          path: rpmbuild/RPMS/*/ds5bridge-0*.rpm
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [arch, deb, rpm]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Release
+        run: |
+          cd dist
+          sha256sum -- * > SHA256SUMS
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 && exit 0
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" --generate-notes -- *
+
+  pacman-repo:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: release
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    permissions:
+      contents: write
+    concurrency: pacman-repo
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - run: pacman -Syu --noconfirm git github-cli
+      - uses: actions/checkout@v4
+      - name: Pacman repository
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: .github/scripts/repo-update.sh "$GITHUB_REF_NAME"

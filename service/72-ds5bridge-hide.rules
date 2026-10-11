@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Anderson S.
+# The real Bluetooth pad belongs to ds5bridge: its hidraw and input nodes become root-only and are ignored by libinput, so Steam and games only see
+# the virtual USB pad (otherwise they would see two controllers, and the touchpad would move the desktop cursor).
+# Safety net: this only applies while vhci_hcd is loaded (modules-load.d/ds5bridge.conf loads it at boot). If the module is gone (say after a kernel
+# update) nothing is hidden and the pad keeps working natively, instead of vanishing with nobody to bridge it.
+# Must sort after 70-uaccess / 70-joystick / 60-steam-input (they add the uaccess tag) and before 73-seat-late (it turns the tag into an ACL).
+SUBSYSTEM=="hidraw", TEST=="/sys/devices/platform/vhci_hcd.0", KERNELS=="0005:054C:0CE6.*", GROUP="root", MODE="0600", TAG-="uaccess"
+SUBSYSTEM=="hidraw", TEST=="/sys/devices/platform/vhci_hcd.0", KERNELS=="0005:054C:0DF2.*", GROUP="root", MODE="0600", TAG-="uaccess"
+SUBSYSTEM=="input", TEST=="/sys/devices/platform/vhci_hcd.0", KERNEL=="event*|js*", KERNELS=="0005:054C:0CE6.*", GROUP="root", MODE="0600", TAG-="uaccess", ENV{LIBINPUT_IGNORE_DEVICE}="1"
+SUBSYSTEM=="input", TEST=="/sys/devices/platform/vhci_hcd.0", KERNEL=="event*|js*", KERNELS=="0005:054C:0DF2.*", GROUP="root", MODE="0600", TAG-="uaccess", ENV{LIBINPUT_IGNORE_DEVICE}="1"

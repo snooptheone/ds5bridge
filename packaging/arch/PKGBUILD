@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Maintainer: Anderson S. <4625164+snooptheone@users.noreply.github.com>
+#
+# Builds ds5bridge from the tagged source. DS5_SRC and DS5_REF are for CI and for testing a build before the tag exists:
+#   DS5_SRC=file:///path/to/clone DS5_REF=commit=<sha> makepkg -f
+# Leave them unset to build the release tag from GitHub.
+pkgname=ds5bridge
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Bluetooth DualSense as a virtual USB DualSense: adaptive triggers, haptics and the speaker for Proton/Wine games'
+arch=('x86_64' 'aarch64')
+url='https://github.com/snooptheone/ds5bridge'
+license=('GPL-3.0-or-later')
+depends=('glibc' 'opus' 'systemd' 'kmod')
+makedepends=('git')
+options=('!debug')
+optdepends=('bluez: the Bluetooth stack the pad connects through'
+            'wireplumber: reads the pad audio rule this package installs (the controller speaker and haptics need it)')
+install=ds5bridge.install
+source=("$pkgname::git+${DS5_SRC:-$url.git}#${DS5_REF:-tag=v$pkgver}")
+b2sums=('SKIP')
+
+build() {
+  cd "$pkgname"
+  make VERSION="$pkgver"
+}
+
+check() {
+  cd "$pkgname"
+  make VERSION="$pkgver" test
+}
+
+package() {
+  cd "$pkgname"
+  make install VERSION="$pkgver" DESTDIR="$pkgdir" PREFIX=/usr \
+    SYSTEMDDIR=/usr/lib/systemd/system UDEVDIR=/usr/lib/udev/rules.d MODULESDIR=/usr/lib/modules-load.d \
+    WPCONFDIR=/usr/share/wireplumber/wireplumber.conf.d WPLUADIR=/usr/share/wireplumber/main.lua.d WPSTYLE=0.5 \
+    DOCDIR="/usr/share/doc/$pkgname"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

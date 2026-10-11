@@ -1,0 +1,17 @@
+--- a/drivers/hid/hid-playstation.c
++++ b/drivers/hid/hid-playstation.c
+@@ -1455,6 +1455,14 @@
+ 		ds_report = (struct dualsense_input_report *)&data[1];
+ 	} else if (hdev->bus == BUS_BLUETOOTH && report->id == DS_INPUT_REPORT_BT &&
+ 		   size == DS_INPUT_REPORT_BT_SIZE) {
++		/*
++		 * ds5-mic: with the pad microphone on, report 0x31 also carries 71 B of Opus audio
++		 * (byte 1 bit 1) instead of pad state. Parsing it as state makes up touches and
++		 * stick values, so skip it here. hidraw still receives it (it runs before this driver).
++		 */
++		if (data[1] & 0x02)
++			return 0;
++
+ 		/* Last 4 bytes of input report contain crc32 */
+ 		u32 report_crc = get_unaligned_le32(&data[size - 4]);
+ 

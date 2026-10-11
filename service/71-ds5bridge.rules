@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Anderson S.
+# Start ds5bridge when a Bluetooth DualSense (or Edge) connects. The daemon keeps running when the pad goes away; the virtual pad does not.
+SUBSYSTEM=="hidraw", KERNELS=="0005:054C:0CE6.*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ds5bridge.service"
+SUBSYSTEM=="hidraw", KERNELS=="0005:054C:0DF2.*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="ds5bridge.service"

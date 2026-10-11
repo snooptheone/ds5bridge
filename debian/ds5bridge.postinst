@@ -1,0 +1,12 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -e
+#DEBHELPER#
+case "$1" in
+  configure)
+    udevadm control --reload >/dev/null 2>&1 || true
+    modprobe vhci_hcd >/dev/null 2>&1 || echo "ds5bridge: could not load the vhci_hcd kernel module; the virtual pad needs it (on Ubuntu: apt install linux-modules-extra-$(uname -r))"
+    echo "ds5bridge: restart WirePlumber once so that it reads the pad audio rule (as your user: systemctl --user restart wireplumber), then reconnect the DualSense (PS button). Logs: journalctl -u ds5bridge -f"
+    ;;
+esac
+exit 0

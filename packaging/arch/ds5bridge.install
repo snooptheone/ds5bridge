@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# pacman reloads udev rules and the systemd manager itself (its own hooks); what is left is the kernel module and a word to the user.
+
+post_install() {
+  modprobe vhci_hcd 2>/dev/null || echo 'ds5bridge: could not load the vhci_hcd kernel module (CONFIG_USBIP_VHCI_HCD); the virtual pad needs it'
+  echo 'ds5bridge: restart WirePlumber once so that it reads the pad audio rule (as your user: systemctl --user restart wireplumber), then reconnect the DualSense (PS button). Logs: journalctl -u ds5bridge -f'
+  echo 'ds5bridge: the real Bluetooth pad is hidden from your user (root only) so that games see the virtual USB pad only; turn Steam Input off for games with native DualSense support'
+}
+
+post_upgrade() {
+  modprobe vhci_hcd 2>/dev/null || true
+  # the running daemon is not restarted: that would drop the virtual pad in the middle of a game
+  if systemctl is-active --quiet ds5bridge.service 2>/dev/null; then
+    echo 'ds5bridge: upgraded. Restart the daemon when you can: sudo systemctl restart ds5bridge (the virtual pad drops for a second)'
+  fi
+}
+
+pre_remove() {
+  systemctl stop ds5bridge.service 2>/dev/null || true
+}
+
+post_remove() {
+  # a pad that is connected right now gets its normal permissions back
+  udevadm control --reload 2>/dev/null || true
+  udevadm trigger --subsystem-match=hidraw --subsystem-match=input --action=change 2>/dev/null || true
+}

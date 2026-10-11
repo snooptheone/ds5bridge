@@ -1,0 +1,13 @@
+bin/
+*.o
+*.log
+packaging/arch/ds5bridge/
+packaging/arch/pkg/
+packaging/arch/*.pkg.tar.*
+debian/.debhelper/
+debian/ds5bridge/
+debian/files
+debian/*.substvars
+debian/*.debhelper.log
+debian/debhelper-build-stamp
+rpmbuild/

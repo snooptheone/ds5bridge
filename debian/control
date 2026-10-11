@@ -1,0 +1,23 @@
+Source: ds5bridge
+Section: utils
+Priority: optional
+Maintainer: Anderson S. <4625164+snooptheone@users.noreply.github.com>
+Build-Depends: debhelper-compat (= 13), libopus-dev
+Standards-Version: 4.6.2
+Homepage: https://github.com/snooptheone/ds5bridge
+Rules-Requires-Root: no
+
+Package: ds5bridge
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, kmod, systemd, udev
+Recommends: bluez, wireplumber
+Description: Bluetooth DualSense as a virtual USB DualSense
+ Makes a Bluetooth DualSense look like a USB DualSense to the system, so that
+ Proton and Wine games that talk to the pad natively get adaptive triggers,
+ HD haptics and the controller speaker over Bluetooth on Linux.
+ .
+ A root daemon serves a virtual USB pad to the kernel's vhci_hcd and bridges it
+ to the real pad. It starts by itself when a pad connects (udev), hides the real
+ Bluetooth pad from the user while it runs, and removes the virtual pad when the
+ real one goes away. Up to four pads at once. Includes ds5ctl (battery, trigger
+ effects, power-off).
