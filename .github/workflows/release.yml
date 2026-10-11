@@ -40,7 +40,7 @@ jobs:
           su builder -c "cd packaging/arch && env -u DS5_SRC -u DS5_REF makepkg --printsrcinfo" | diff - packaging/arch/.SRCINFO
           namcap packaging/arch/PKGBUILD
           namcap packaging/arch/*.pkg.tar.zst || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: arch
           path: packaging/arch/*.pkg.tar.zst
@@ -67,7 +67,7 @@ jobs:
           v=$(dpkg-parsechangelog -S Version); a=$(dpkg --print-architecture); d=$(echo '${{ matrix.image }}' | tr -d ':')
           cp "../ds5bridge_${v}_${a}.deb" "dist/ds5bridge_${v}_${a}_${d}.deb"
           lintian dist/*.deb || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: deb-${{ strategy.job-index }}
           path: dist/*.deb
@@ -87,7 +87,7 @@ jobs:
           git archive --prefix="ds5bridge-$v/" -o "/tmp/rpmsrc/ds5bridge-$v.tar.gz" HEAD
           rpmbuild -ba packaging/rpm/ds5bridge.spec --define "_topdir $PWD/rpmbuild" --define "_sourcedir /tmp/rpmsrc"
           rpmlint rpmbuild/RPMS/*/ds5bridge-0*.rpm || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: rpm
           path: rpmbuild/RPMS/*/ds5bridge-0*.rpm
