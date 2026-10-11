@@ -6,7 +6,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install libopus
         run: sudo apt-get update && sudo apt-get install -y libopus-dev
       - name: "Build and test (no hardware, no root; a pty plays the pad and vhci_hcd is faked)"
