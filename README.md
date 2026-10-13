@@ -81,7 +81,7 @@ curl -fsSLO https://github.com/snooptheone/ds5bridge/releases/download/repo/ds5b
 [ "$(gpg --show-keys --with-colons ds5bridge.gpg | awk -F: '/^fpr/{print $10; exit}')" = "$FPR" ] &&
 sudo pacman-key --add ds5bridge.gpg && sudo pacman-key --lsign-key "$FPR" &&
 { grep -q '^\[ds5bridge\]' /etc/pacman.conf || printf '\n[ds5bridge]\nSigLevel = Required DatabaseRequired\nServer = https://github.com/snooptheone/ds5bridge/releases/download/repo\n' | sudo tee -a /etc/pacman.conf >/dev/null; } &&
-sudo pacman -Syu ds5bridge
+sudo pacman -S ds5bridge
 ```
 
 **Or build it yourself** (clones the release tag):
